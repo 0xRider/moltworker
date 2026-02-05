@@ -7,7 +7,19 @@
       "Bash(docker --version:*)",
       "Bash(docker buildx:*)",
       "Bash(DOCKER_BUILDKIT=1 npm run dev:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "WebFetch(domain:moltbot-sandbox.viberite.workers.dev)",
+      "Bash(npm run deploy:*)",
+      "Bash(command -v:*)",
+      "Bash(npm exec:*)",
+      "Bash(npx clawdbot --help:*)",
+      "Bash(npx clawdbot agents --help:*)",
+      "Bash(npx clawdbot agents add --help:*)",
+      "Bash(npx clawdbot:*)",
+      "Bash(npx clawdbot agents list:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(node:*)",
+      "Bash(md5:*)"
     ]
   }
 }

@@ -1,0 +1,28 @@
+{
+  "agents": {
+    "jarvis": {
+      "model": "anthropic/claude-opus-4-5-20251101",
+      "identity": {
+        "name": "Jarvis",
+        "emoji": "🤖"
+      },
+      "soul": "jarvis-SOUL.md"
+    },
+    "shuri": {
+      "model": "anthropic/claude-haiku-4-5-20251001",
+      "identity": {
+        "name": "Shuri",
+        "emoji": "👩🏾‍🔬"
+      },
+      "soul": "shuri-SOUL.md"
+    },
+    "friday": {
+      "model": "anthropic/claude-sonnet-4-5-20250929",
+      "identity": {
+        "name": "Friday",
+        "emoji": "🌅"
+      },
+      "soul": "friday-SOUL.md"
+    }
+  }
+}

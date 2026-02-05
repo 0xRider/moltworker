@@ -2,45 +2,34 @@ import type { MoltbotEnv } from '../types';
 
 /**
  * Build environment variables to pass to the Moltbot container process
- * 
+ *
  * @param env - Worker environment bindings
  * @returns Environment variables record
  */
 export function buildEnvVars(env: MoltbotEnv): Record<string, string> {
   const envVars: Record<string, string> = {};
 
-  // Normalize the base URL by removing trailing slashes
-  const normalizedBaseUrl = env.AI_GATEWAY_BASE_URL?.replace(/\/+$/, '');
-  const isOpenAIGateway = normalizedBaseUrl?.endsWith('/openai');
-
-  // AI Gateway vars take precedence
-  // Map to the appropriate provider env var based on the gateway endpoint
+  // Cloudflare AI Gateway - single URL + key for all providers
+  // Supports /compat (all providers), /openai, or /anthropic endpoints
+  if (env.AI_GATEWAY_BASE_URL) {
+    envVars.AI_GATEWAY_BASE_URL = env.AI_GATEWAY_BASE_URL.replace(/\/+$/, '');
+  }
   if (env.AI_GATEWAY_API_KEY) {
-    if (isOpenAIGateway) {
-      envVars.OPENAI_API_KEY = env.AI_GATEWAY_API_KEY;
-    } else {
-      envVars.ANTHROPIC_API_KEY = env.AI_GATEWAY_API_KEY;
-    }
+    envVars.AI_GATEWAY_API_KEY = env.AI_GATEWAY_API_KEY;
+    // Set as OPENAI_API_KEY for /compat and /openai endpoints (uses OpenAI SDK)
+    envVars.OPENAI_API_KEY = env.AI_GATEWAY_API_KEY;
+    // Also set as ANTHROPIC_API_KEY for /anthropic endpoint
+    envVars.ANTHROPIC_API_KEY = env.AI_GATEWAY_API_KEY;
   }
 
-  // Fall back to direct provider keys
-  if (!envVars.ANTHROPIC_API_KEY && env.ANTHROPIC_API_KEY) {
-    envVars.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
-  }
-  if (!envVars.OPENAI_API_KEY && env.OPENAI_API_KEY) {
+  // Direct provider keys (fallback/override)
+  if (env.OPENAI_API_KEY) {
     envVars.OPENAI_API_KEY = env.OPENAI_API_KEY;
   }
-
-  // Pass base URL (used by start-moltbot.sh to determine provider)
-  if (normalizedBaseUrl) {
-    envVars.AI_GATEWAY_BASE_URL = normalizedBaseUrl;
-    // Also set the provider-specific base URL env var
-    if (isOpenAIGateway) {
-      envVars.OPENAI_BASE_URL = normalizedBaseUrl;
-    } else {
-      envVars.ANTHROPIC_BASE_URL = normalizedBaseUrl;
-    }
-  } else if (env.ANTHROPIC_BASE_URL) {
+  if (env.ANTHROPIC_API_KEY) {
+    envVars.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
+  }
+  if (env.ANTHROPIC_BASE_URL) {
     envVars.ANTHROPIC_BASE_URL = env.ANTHROPIC_BASE_URL;
   }
   // Map MOLTBOT_GATEWAY_TOKEN to CLAWDBOT_GATEWAY_TOKEN (container expects this name)
@@ -55,6 +44,9 @@ export function buildEnvVars(env: MoltbotEnv): Record<string, string> {
   if (env.SLACK_APP_TOKEN) envVars.SLACK_APP_TOKEN = env.SLACK_APP_TOKEN;
   if (env.CDP_SECRET) envVars.CDP_SECRET = env.CDP_SECRET;
   if (env.WORKER_URL) envVars.WORKER_URL = env.WORKER_URL;
+  // Farcaster / Neynar
+  if (env.FARCASTER_API_KEY) envVars.FARCASTER_API_KEY = env.FARCASTER_API_KEY;
+  if (env.FARCASTER_SIGNER_UUID) envVars.FARCASTER_SIGNER_UUID = env.FARCASTER_SIGNER_UUID;
 
   return envVars;
 }

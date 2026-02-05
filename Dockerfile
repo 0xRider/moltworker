@@ -33,12 +33,16 @@ RUN mkdir -p /root/.clawdbot \
     && mkdir -p /root/clawd/skills
 
 # Copy startup script
-# Build cache bust: 2026-01-28-v26-browser-skill
+# Build cache bust: 2026-02-04-v27-multi-agent
 COPY start-moltbot.sh /usr/local/bin/start-moltbot.sh
 RUN chmod +x /usr/local/bin/start-moltbot.sh
 
 # Copy default configuration template
 COPY moltbot.json.template /root/.clawdbot-templates/moltbot.json.template
+
+# Copy agents configuration and SOUL.md templates
+COPY agents.json /root/.clawdbot-templates/agents.json
+COPY templates/agents/ /root/.clawdbot-templates/agents/
 
 # Copy custom skills
 COPY skills/ /root/clawd/skills/

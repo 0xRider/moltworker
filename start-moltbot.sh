@@ -1,5 +1,6 @@
 #!/bin/bash
 # Startup script for Moltbot in Cloudflare Sandbox
+# Version: 2026-02-04-v27-multi-agent
 # This script:
 # 1. Restores config from R2 backup if available
 # 2. Configures moltbot from environment variables
@@ -102,6 +103,17 @@ if [ -d "$BACKUP_DIR/skills" ] && [ "$(ls -A $BACKUP_DIR/skills 2>/dev/null)" ];
         mkdir -p "$SKILLS_DIR"
         cp -a "$BACKUP_DIR/skills/." "$SKILLS_DIR/"
         echo "Restored skills from R2 backup"
+    fi
+fi
+
+# Restore agent workspaces from R2 backup if available (SOUL.md, memory, etc.)
+AGENTS_DIR="/root/clawd/agents"
+if [ -d "$BACKUP_DIR/agents" ] && [ "$(ls -A $BACKUP_DIR/agents 2>/dev/null)" ]; then
+    if should_restore_from_r2; then
+        echo "Restoring agent workspaces from $BACKUP_DIR/agents..."
+        mkdir -p "$AGENTS_DIR"
+        cp -a "$BACKUP_DIR/agents/." "$AGENTS_DIR/"
+        echo "Restored agent workspaces from R2 backup"
     fi
 fi
 
@@ -222,40 +234,78 @@ if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
     config.channels.slack.enabled = true;
 }
 
-// Base URL override (e.g., for Cloudflare AI Gateway)
-// Usage: Set AI_GATEWAY_BASE_URL or ANTHROPIC_BASE_URL to your endpoint like:
-//   https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/anthropic
-//   https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/openai
-const baseUrl = (process.env.AI_GATEWAY_BASE_URL || process.env.ANTHROPIC_BASE_URL || '').replace(/\/+$/, '');
-const isOpenAI = baseUrl.endsWith('/openai');
+// ============================================================
+// AI PROVIDER CONFIGURATION
+// ============================================================
+// Cloudflare AI Gateway /compat endpoint - single URL for all providers
+// Uses OpenAI-compatible API with provider-prefixed model names:
+//   model: "openai/gpt-5" or "anthropic/claude-opus-4-5-20251101"
 
-if (isOpenAI) {
-    // Create custom openai provider config with baseUrl override
-    // Omit apiKey so moltbot falls back to OPENAI_API_KEY env var
-    console.log('Configuring OpenAI provider with base URL:', baseUrl);
-    config.models = config.models || {};
-    config.models.providers = config.models.providers || {};
+config.models = config.models || {};
+config.models.providers = config.models.providers || {};
+config.agents.defaults.models = config.agents.defaults.models || {};
+
+// AI Gateway URL - supports both AI_GATEWAY_URL and AI_GATEWAY_BASE_URL
+const gatewayUrl = (process.env.AI_GATEWAY_URL || process.env.AI_GATEWAY_BASE_URL || '').replace(/\/+$/, '');
+const isCompatMode = gatewayUrl.endsWith('/compat');
+const isOpenAIMode = gatewayUrl.endsWith('/openai');
+const isAnthropicMode = gatewayUrl.endsWith('/anthropic');
+
+if (isCompatMode) {
+    // Cloudflare AI Gateway /compat mode - all providers via OpenAI-compatible API
+    console.log('Configuring AI Gateway (compat mode):', gatewayUrl);
+
+    // Configure as OpenAI provider since /compat uses OpenAI SDK format
     config.models.providers.openai = {
-        baseUrl: baseUrl,
+        baseUrl: gatewayUrl,
+        api: 'openai-responses',
+        models: [
+            // OpenAI models (prefixed with openai/)
+            { id: 'openai/gpt-5.2', name: 'GPT-5.2', contextWindow: 200000 },
+            { id: 'openai/gpt-5', name: 'GPT-5', contextWindow: 200000 },
+            { id: 'openai/gpt-4.5-preview', name: 'GPT-4.5 Preview', contextWindow: 128000 },
+            { id: 'openai/gpt-4o', name: 'GPT-4o', contextWindow: 128000 },
+            // Anthropic models via compat (prefixed with anthropic/)
+            { id: 'anthropic/claude-opus-4-5-20251101', name: 'Claude Opus 4.5', contextWindow: 200000 },
+            { id: 'anthropic/claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', contextWindow: 200000 },
+            { id: 'anthropic/claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', contextWindow: 200000 },
+        ]
+    };
+
+    // Add all models to allowlist
+    config.agents.defaults.models['openai/gpt-5.2'] = { alias: 'GPT-5.2' };
+    config.agents.defaults.models['openai/gpt-5'] = { alias: 'GPT-5' };
+    config.agents.defaults.models['openai/gpt-4.5-preview'] = { alias: 'GPT-4.5' };
+    config.agents.defaults.models['openai/gpt-4o'] = { alias: 'GPT-4o' };
+    config.agents.defaults.models['anthropic/claude-opus-4-5-20251101'] = { alias: 'Opus 4.5' };
+    config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250929'] = { alias: 'Sonnet 4.5' };
+    config.agents.defaults.models['anthropic/claude-haiku-4-5-20251001'] = { alias: 'Haiku 4.5' };
+
+    config.agents.defaults.model.primary = 'anthropic/claude-opus-4-5-20251101';
+
+} else if (isOpenAIMode) {
+    // OpenAI-only gateway endpoint
+    console.log('Configuring AI Gateway (OpenAI mode):', gatewayUrl);
+    config.models.providers.openai = {
+        baseUrl: gatewayUrl,
         api: 'openai-responses',
         models: [
             { id: 'gpt-5.2', name: 'GPT-5.2', contextWindow: 200000 },
             { id: 'gpt-5', name: 'GPT-5', contextWindow: 200000 },
             { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', contextWindow: 128000 },
+            { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000 },
         ]
     };
-    // Add models to the allowlist so they appear in /models
-    config.agents.defaults.models = config.agents.defaults.models || {};
     config.agents.defaults.models['openai/gpt-5.2'] = { alias: 'GPT-5.2' };
     config.agents.defaults.models['openai/gpt-5'] = { alias: 'GPT-5' };
-    config.agents.defaults.models['openai/gpt-4.5-preview'] = { alias: 'GPT-4.5' };
+    config.agents.defaults.models['openai/gpt-4o'] = { alias: 'GPT-4o' };
     config.agents.defaults.model.primary = 'openai/gpt-5.2';
-} else if (baseUrl) {
-    console.log('Configuring Anthropic provider with base URL:', baseUrl);
-    config.models = config.models || {};
-    config.models.providers = config.models.providers || {};
+
+} else if (isAnthropicMode || gatewayUrl) {
+    // Anthropic-only gateway endpoint (or unrecognized suffix, default to Anthropic)
+    console.log('Configuring AI Gateway (Anthropic mode):', gatewayUrl);
     const providerConfig = {
-        baseUrl: baseUrl,
+        baseUrl: gatewayUrl,
         api: 'anthropic-messages',
         models: [
             { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', contextWindow: 200000 },
@@ -263,20 +313,42 @@ if (isOpenAI) {
             { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', contextWindow: 200000 },
         ]
     };
-    // Include API key in provider config if set (required when using custom baseUrl)
     if (process.env.ANTHROPIC_API_KEY) {
         providerConfig.apiKey = process.env.ANTHROPIC_API_KEY;
     }
     config.models.providers.anthropic = providerConfig;
-    // Add models to the allowlist so they appear in /models
-    config.agents.defaults.models = config.agents.defaults.models || {};
     config.agents.defaults.models['anthropic/claude-opus-4-5-20251101'] = { alias: 'Opus 4.5' };
     config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250929'] = { alias: 'Sonnet 4.5' };
     config.agents.defaults.models['anthropic/claude-haiku-4-5-20251001'] = { alias: 'Haiku 4.5' };
     config.agents.defaults.model.primary = 'anthropic/claude-opus-4-5-20251101';
+
 } else {
-    // Default to Anthropic without custom base URL (uses built-in pi-ai catalog)
+    // No gateway - use built-in Anthropic catalog (requires ANTHROPIC_API_KEY)
+    console.log('No AI Gateway configured, using built-in Anthropic catalog');
     config.agents.defaults.model.primary = 'anthropic/claude-opus-4-5';
+}
+
+// ============================================================
+// CONFIGURE ADDITIONAL AGENTS FROM agents.json
+// ============================================================
+// Reads agent definitions from /root/.clawdbot-templates/agents.json
+// Each agent gets its own workspace, model, and identity
+
+const agentsConfigPath = '/root/.clawdbot-templates/agents.json';
+try {
+    const agentsFile = JSON.parse(fs.readFileSync(agentsConfigPath, 'utf8'));
+    const agents = agentsFile.agents || {};
+
+    for (const [agentId, agentDef] of Object.entries(agents)) {
+        console.log('Configuring agent:', agentId);
+        config.agents[agentId] = {
+            workspace: '/root/clawd/agents/' + agentId,
+            model: { primary: agentDef.model },
+            identity: agentDef.identity || { name: agentId }
+        };
+    }
+} catch (e) {
+    console.log('No agents.json found or error reading it:', e.message);
 }
 
 // Write updated config
@@ -284,6 +356,42 @@ fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 console.log('Configuration updated successfully');
 console.log('Config:', JSON.stringify(config, null, 2));
 EOFNODE
+
+# ============================================================
+# CREATE AGENT WORKSPACES AND SOUL.md FILES
+# ============================================================
+# Reads agent list from agents.json and creates workspaces
+# SOUL.md templates are in /root/.clawdbot-templates/agents/
+# Only copies SOUL.md if it doesn't already exist (preserves customizations)
+
+AGENT_TEMPLATES="/root/.clawdbot-templates/agents"
+AGENTS_CONFIG="/root/.clawdbot-templates/agents.json"
+
+echo "Creating agent workspaces..."
+if [ -f "$AGENTS_CONFIG" ]; then
+    # Extract agent IDs and soul file mappings from agents.json
+    node -e "
+        const fs = require('fs');
+        const config = JSON.parse(fs.readFileSync('$AGENTS_CONFIG', 'utf8'));
+        for (const [id, def] of Object.entries(config.agents || {})) {
+            console.log(id + ':' + (def.soul || ''));
+        }
+    " | while IFS=: read -r agent soul; do
+        mkdir -p "/root/clawd/agents/$agent"
+        if [ ! -f "/root/clawd/agents/$agent/SOUL.md" ]; then
+            # Try the configured soul file, then fallback to {agent}-SOUL.md
+            if [ -n "$soul" ] && [ -f "$AGENT_TEMPLATES/$soul" ]; then
+                cp "$AGENT_TEMPLATES/$soul" "/root/clawd/agents/$agent/SOUL.md"
+                echo "Created SOUL.md for $agent (from $soul)"
+            elif [ -f "$AGENT_TEMPLATES/$agent-SOUL.md" ]; then
+                cp "$AGENT_TEMPLATES/$agent-SOUL.md" "/root/clawd/agents/$agent/SOUL.md"
+                echo "Created SOUL.md for $agent"
+            fi
+        fi
+    done
+else
+    echo "No agents.json found, skipping agent workspace creation"
+fi
 
 # ============================================================
 # START GATEWAY

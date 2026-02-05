@@ -7,10 +7,12 @@ export interface MoltbotEnv {
   Sandbox: DurableObjectNamespace<Sandbox>;
   ASSETS: Fetcher; // Assets binding for admin UI static files
   MOLTBOT_BUCKET: R2Bucket; // R2 bucket for persistent storage
-  // AI Gateway configuration (preferred)
-  AI_GATEWAY_API_KEY?: string; // API key for the provider configured in AI Gateway
-  AI_GATEWAY_BASE_URL?: string; // AI Gateway URL (e.g., https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/anthropic)
-  // Legacy direct provider configuration (fallback)
+  // Cloudflare AI Gateway configuration (recommended)
+  // Supports /compat (all providers), /openai, or /anthropic endpoints
+  // e.g., https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/compat
+  AI_GATEWAY_BASE_URL?: string;
+  AI_GATEWAY_API_KEY?: string; // Single API key works for all providers
+  // Direct provider configuration (fallback if no gateway)
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_BASE_URL?: string;
   OPENAI_API_KEY?: string;
@@ -38,6 +40,9 @@ export interface MoltbotEnv {
   BROWSER?: Fetcher;
   CDP_SECRET?: string; // Shared secret for CDP endpoint authentication
   WORKER_URL?: string; // Public URL of the worker (for CDP endpoint)
+  // Farcaster / Neynar configuration
+  FARCASTER_API_KEY?: string; // Neynar API key
+  FARCASTER_SIGNER_UUID?: string; // Neynar managed signer UUID
 }
 
 /**

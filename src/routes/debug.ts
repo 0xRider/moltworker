@@ -350,6 +350,11 @@ debug.get('/env', async (c) => {
     bind_mode: c.env.CLAWDBOT_BIND_MODE,
     cf_access_team_domain: c.env.CF_ACCESS_TEAM_DOMAIN,
     has_cf_access_aud: !!c.env.CF_ACCESS_AUD,
+    has_ai_gateway_key: !!c.env.AI_GATEWAY_API_KEY,
+    ai_gateway_base_url: c.env.AI_GATEWAY_BASE_URL || null,
+    ai_gateway_provider: c.env.AI_GATEWAY_BASE_URL?.endsWith('/openai') ? 'openai'
+      : c.env.AI_GATEWAY_BASE_URL?.endsWith('/anthropic') ? 'anthropic'
+      : null,
   });
 });
 
