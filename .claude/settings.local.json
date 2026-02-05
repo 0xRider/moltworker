@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx wrangler secret:*)",
+      "Bash(npx wrangler:*)",
+      "Bash(curl:*)",
+      "Bash(docker --version:*)",
+      "Bash(docker buildx:*)",
+      "Bash(DOCKER_BUILDKIT=1 npm run dev:*)",
+      "Bash(npm run dev:*)"
+    ]
+  }
+}
