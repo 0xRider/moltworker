@@ -20,7 +20,11 @@
       "Bash(npm run typecheck:*)",
       "Bash(node:*)",
       "Bash(md5:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(npm view:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.molt.bot)",
+      "WebFetch(domain:docs.openclaw.ai)"
     ]
   }
 }

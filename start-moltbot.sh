@@ -332,23 +332,44 @@ if (isCompatMode) {
 // CONFIGURE ADDITIONAL AGENTS FROM agents.json
 // ============================================================
 // Reads agent definitions from /root/.clawdbot-templates/agents.json
-// Each agent gets its own workspace, model, and identity
+// Multi-agent uses agents.list[] array format (not direct keys under agents)
 
 const agentsConfigPath = '/root/.clawdbot-templates/agents.json';
 try {
     const agentsFile = JSON.parse(fs.readFileSync(agentsConfigPath, 'utf8'));
     const agents = agentsFile.agents || {};
 
+    // Initialize agents.list as array if not exists
+    config.agents.list = config.agents.list || [];
+
+    // Build a set of existing agent IDs to avoid duplicates
+    const existingIds = new Set(config.agents.list.map(a => a.id));
+
     for (const [agentId, agentDef] of Object.entries(agents)) {
+        if (existingIds.has(agentId)) {
+            console.log('Agent already configured, skipping:', agentId);
+            continue;
+        }
         console.log('Configuring agent:', agentId);
-        config.agents[agentId] = {
+        config.agents.list.push({
+            id: agentId,
+            name: agentDef.identity?.name || agentId,
             workspace: '/root/clawd/agents/' + agentId,
-            model: { primary: agentDef.model },
+            model: agentDef.model,
             identity: agentDef.identity || { name: agentId }
-        };
+        });
     }
 } catch (e) {
     console.log('No agents.json found or error reading it:', e.message);
+}
+
+// Clean up any old-style agent keys (direct keys under agents that aren't 'defaults' or 'list')
+const validAgentKeys = ['defaults', 'list'];
+for (const key of Object.keys(config.agents || {})) {
+    if (!validAgentKeys.includes(key)) {
+        console.log('Removing legacy agent key:', key);
+        delete config.agents[key];
+    }
 }
 
 // Write updated config
