@@ -24,7 +24,9 @@
       "Bash(npm view:*)",
       "WebSearch",
       "WebFetch(domain:docs.molt.bot)",
-      "WebFetch(domain:docs.openclaw.ai)"
+      "WebFetch(domain:docs.openclaw.ai)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest run:*)"
     ]
   }
 }

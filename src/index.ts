@@ -418,7 +418,8 @@ app.all('*', async (c) => {
 
 /**
  * Scheduled handler for cron triggers.
- * Syncs moltbot config/state from container to R2 for persistence.
+ * Ensures the gateway is running (restarts it if the container recycled),
+ * then syncs moltbot config/state from container to R2 for persistence.
  */
 async function scheduled(
   _event: ScheduledEvent,
@@ -427,6 +428,16 @@ async function scheduled(
 ): Promise<void> {
   const options = buildSandboxOptions(env);
   const sandbox = getSandbox(env.Sandbox, 'moltbot', options);
+
+  // Ensure gateway is running — if the container recycled or the process crashed,
+  // this restarts it (which also recreates clawdbot.json via start-moltbot.sh)
+  try {
+    await ensureMoltbotGateway(sandbox, env);
+    console.log('[cron] Gateway is running');
+  } catch (err) {
+    console.error('[cron] Failed to ensure gateway is running:', err);
+    // Still attempt sync in case the config exists from a previous run
+  }
 
   console.log('[cron] Starting backup sync to R2...');
   const result = await syncToR2(sandbox, env);
